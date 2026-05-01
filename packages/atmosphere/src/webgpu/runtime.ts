@@ -66,7 +66,6 @@ import {
   smoothstep,
   sqrt,
   struct,
-  vec2,
   vec3,
   vec4
 } from 'three/tsl'
