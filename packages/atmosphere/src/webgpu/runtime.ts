@@ -66,6 +66,7 @@ import {
   smoothstep,
   sqrt,
   struct,
+  vec2,
   vec3,
   vec4
 } from 'three/tsl'
@@ -185,10 +186,15 @@ const getIndirectRadiance = /*#__PURE__*/ FnVar(
 
     // If the viewer is in space and the view ray intersects the atmosphere,
     // move the viewer to the top atmosphere boundary along the view ray.
+    shadowLength = shadowLength.toVar()
     If(distanceToTop.greaterThan(0), () => {
       camera.assign(camera.add(rayDirection.mul(distanceToTop)))
       radius.assign(topRadius)
       radiusCosView.addAssign(distanceToTop)
+
+      // The y component of shadow length is the distance from the camera,
+      // which must be moved as well.
+      shadowLength.y.assign(shadowLength.y.sub(distanceToTop).max(0))
     })
 
     const radiance = vec3(0).toVar()
@@ -730,10 +736,15 @@ const getIndirectRadianceToPoint = /*#__PURE__*/ FnVar(
       // If the viewer is in space and the view ray intersects the atmosphere,
       // move the viewer to the top atmosphere boundary along the view ray.
       const rayOrigin = camera.toVar()
+      shadowLength = shadowLength.toVar()
       If(distanceToTop.greaterThan(0), () => {
         rayOrigin.addAssign(rayDirection.mul(distanceToTop))
         radius.assign(topRadius)
         radiusCosView.addAssign(distanceToTop)
+
+        // The y component of shadow length is the distance from the camera,
+        // which must be moved as well.
+        shadowLength.y.assign(shadowLength.y.sub(distanceToTop).max(0))
       })
 
       const cosView = radiusCosView.div(radius)
