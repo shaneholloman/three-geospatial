@@ -213,7 +213,10 @@ export class EpipolarShadowLengthNode extends Node {
         cascadeIndex: Node<'int'>,
         rayEndCameraZ: Node<'float'>,
         cascadeStartCameraZ: Node<'float'>,
-        cascadeEndCameraZ: Node<'float'>
+        cascadeEndCameraZ: Node<'float'>,
+        fullRayLength: Node<'float'>,
+        viewDirection: Node<'vec3'>,
+        rayTopIntersection: Node<'vec2'>
       ): Node<'vec2'> => {
         const sliceIndex = uint(screenCoordinate.y)
         const minMaxShadowMapSize = int(minMaxLevelsNode.size().x).toConst()
@@ -247,8 +250,8 @@ export class EpipolarShadowLengthNode extends Node {
         const rayLength = distanceToRayEnd.sub(distanceToRayStart).toConst()
 
         const totalShadowLength = float(0).toVar()
+        const firstShadowMoment = float(0).toVar()
         const totalMarchedLength = float(0).toVar()
-        const distanceToFirstShadowedSection = float(-1).toVar()
 
         // WORKAROUND: We cannot use the early-return pattern.
         If(rayLength.lessThanEqual(10 * worldToUnit).not(), () => {
@@ -465,41 +468,24 @@ export class EpipolarShadowLengthNode extends Node {
             currentSamplePosition.addAssign(uint(1).shiftLeft(currentTreeLevel))
             distanceMarchedInCascade.addAssign(rayStepLengthUnit.mul(stepScale))
 
-            // Store the distance where the ray first enters the shadow.
-            If(
-              distanceToFirstShadowedSection
-                .lessThan(0)
-                .and(isInLight.lessThan(1)),
-              () => {
-                distanceToFirstShadowedSection.assign(
-                  totalMarchedLength.add(integrationStep.mul(isInLight))
-                )
-              }
-            )
+            const shadowStepLength = integrationStep
+              .mul(isInLight.oneMinus())
+              .toConst()
+            const centerStepDistance = distanceToRayStart
+              .add(totalMarchedLength)
+              .add(integrationStep.mul(0.5))
 
-            totalShadowLength.addAssign(
-              integrationStep.mul(isInLight.oneMinus())
+            totalShadowLength.addAssign(shadowStepLength)
+            firstShadowMoment.addAssign(
+              shadowStepLength.mul(centerStepDistance)
             )
             totalMarchedLength.addAssign(integrationStep)
           })
         })
 
-        // If the whole ray is lit, set the distance to the first shadowed
-        // section to the total marched distance.
-        If(distanceToFirstShadowedSection.lessThan(0), () => {
-          distanceToFirstShadowedSection.assign(totalMarchedLength)
-        })
-
-        return vec2(
-          totalShadowLength,
-          distanceToFirstShadowedSection.add(distanceToRayStart)
-        )
+        return vec2(totalShadowLength, firstShadowMoment)
       }
     )
-
-    let fullRayLength: Node<'float'>
-    let viewDirection: Node<'vec3'>
-    let rayTopIntersection: Node<'vec2'>
 
     return Fn(() => {
       const { parametersNode } = getAtmosphereContext(builder)
@@ -510,6 +496,7 @@ export class EpipolarShadowLengthNode extends Node {
       const rayEndCameraZ = coordinate.z.toVar()
 
       const totalShadowLength = vec2(0).toVar()
+      const fullRayLength = float(0).toVar()
 
       // Skip samples with invalid screen coordinates.
       // WORKAROUND: We cannot use the early-return pattern.
@@ -528,8 +515,8 @@ export class EpipolarShadowLengthNode extends Node {
             camera
           ).toConst()
           const fullRay = rayTermination.sub(cameraPositionUnit).toConst()
-          fullRayLength = fullRay.length().toVar()
-          viewDirection = fullRay.div(fullRayLength).toConst()
+          fullRayLength.assign(fullRay.length())
+          const viewDirection = fullRay.div(fullRayLength).toConst()
 
           // Intersect the ray with the top of the atmosphere and the Earth:
           const intersections = getRaySphereIntersections(
@@ -538,7 +525,7 @@ export class EpipolarShadowLengthNode extends Node {
             vec3(0),
             vec2(topRadius, bottomRadius)
           ).toConst()
-          rayTopIntersection = intersections.xy
+          const rayTopIntersection = intersections.xy
           const rayBottomIntersection = intersections.zw
 
           // The camera is outside the atmosphere and the ray either does not
@@ -547,20 +534,20 @@ export class EpipolarShadowLengthNode extends Node {
           If(rayTopIntersection.y.greaterThan(0), () => {
             // Limit the ray length by the distance to the top of the
             // atmosphere if the ray does not hit terrain.
-            const originalRayLength = fullRayLength.toConst()
+            const rayLength = fullRayLength.toVar()
             If(rayEndCameraZ.greaterThanEqual(biasedCameraFar), () => {
-              fullRayLength.assign(HALF_FLOAT_MAX)
+              rayLength.assign(HALF_FLOAT_MAX)
             })
             // Limit the ray length by the distance to the point where the ray
             // exits the atmosphere.
-            fullRayLength.assign(min(fullRayLength, rayTopIntersection.y))
+            rayLength.assign(min(rayLength, rayTopIntersection.y))
             // If there is an intersection with the Earth surface, limit the
             // tracing distance to the intersection.
             If(rayBottomIntersection.x.greaterThan(0), () => {
-              fullRayLength.assign(min(fullRayLength, rayBottomIntersection.x))
+              rayLength.assign(min(rayLength, rayBottomIntersection.x))
             })
 
-            rayEndCameraZ.mulAssign(fullRayLength.div(originalRayLength))
+            rayEndCameraZ.mulAssign(rayLength.div(fullRayLength))
 
             Loop(
               {
@@ -578,32 +565,45 @@ export class EpipolarShadowLengthNode extends Node {
                   Break()
                 })
 
-                const shadowLength = processCascade(
-                  cascadeIndex,
-                  rayEndCameraZ,
-                  cascadeStartCameraZ,
-                  cascadeEndCameraZ
-                ).toConst()
-
-                // Keep shadowLength.y from the first cascade that has shadow.
-                totalShadowLength.y.assign(
-                  totalShadowLength.x
-                    .equal(0)
-                    .and(shadowLength.x.greaterThan(0))
-                    .select(shadowLength.y, totalShadowLength.y)
+                totalShadowLength.addAssign(
+                  processCascade(
+                    cascadeIndex,
+                    rayEndCameraZ,
+                    cascadeStartCameraZ,
+                    cascadeEndCameraZ,
+                    rayLength,
+                    viewDirection,
+                    rayTopIntersection
+                  )
                 )
-                totalShadowLength.x.addAssign(shadowLength.x)
               }
             )
-
-            // Set the full ray length to shadowLength.y to prevent
-            // interpolated values from being pulled towards 0.
-            If(totalShadowLength.x.equal(0), () => {
-              totalShadowLength.y.assign(fullRayLength)
-            })
           })
         }
       )
+
+      // totalShadowLength.y contains the fist moment of shadow (m). It can be
+      // converted to the approximate distance to the first shadowed segment by:
+      //   y = m/x - 0.5x
+      //   m = \int_y^{y+x}{t}dt = yx + 0.5x^2
+      //   x = \int{f(t)}dt
+      // where x is totalShadowLength.x.
+      // This is unstable when x is small, but not a problem in practice because
+      // short shadow lengths affect less to the final output anyway.
+      If(totalShadowLength.x.greaterThan(1e-6), () => {
+        const distanceToFirstShadow = totalShadowLength.y
+          .div(totalShadowLength.x)
+          .sub(totalShadowLength.x.mul(0.5))
+          .clamp(0, fullRayLength.sub(totalShadowLength.x).max(0))
+          .toConst()
+        totalShadowLength.y.assign(
+          distanceToFirstShadow
+            .lessThan(worldToUnit)
+            .select(0, distanceToFirstShadow)
+        )
+      }).Else(() => {
+        totalShadowLength.y.assign(fullRayLength)
+      })
 
       return totalShadowLength
     })()
