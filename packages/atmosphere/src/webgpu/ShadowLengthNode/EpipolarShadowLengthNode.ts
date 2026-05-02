@@ -324,6 +324,9 @@ export class EpipolarShadowLengthNode extends Node {
           const shadowUVAndDepthStep = shadowTraceDirection
             .mul(shadowUVStepLength)
             .toConst()
+          const minMaxTextureYIndex = uint(sliceIndex)
+            .add(uint(cascadeIndex.sub(firstCascade)).mul(epipolarSliceCount))
+            .toConst()
 
           Loop(distanceMarchedInCascade.lessThan(rayLength), () => {
             // Clamp depth to a very small positive value to avoid z-fighting
@@ -388,9 +391,6 @@ export class EpipolarShadowLengthNode extends Node {
                 .toConst()
 
               // Load 1D min/max depths.
-              const minMaxTextureYIndex = uint(sliceIndex).add(
-                uint(cascadeIndex.sub(firstCascade)).mul(epipolarSliceCount)
-              )
               const minMaxTextureCoord = ivec2(
                 int(currentSamplePosition.shiftRight(currentTreeLevel)).add(
                   levelDataOffset
@@ -402,22 +402,15 @@ export class EpipolarShadowLengthNode extends Node {
                 .xy.toConst()
 
               // Determine if the ray section is fully lit or fully shadowed.
-              if (builder.renderer.reversedDepthBuffer) {
-                // With reversed depth buffer, the relations are reversed.
-                // maxDepth = closest to light
-                isInLight.assign(
-                  startEndDepthOnRaySection
-                    .greaterThanEqual(currentMinMaxDepth.yy)
-                    .all()
-                )
-              } else {
-                // minDepth = closest to light
-                isInLight.assign(
-                  startEndDepthOnRaySection
-                    .lessThanEqual(currentMinMaxDepth.xx)
-                    .all()
-                )
-              }
+              isInLight.assign(
+                builder.renderer.reversedDepthBuffer
+                  ? startEndDepthOnRaySection
+                      .greaterThanEqual(currentMinMaxDepth.yy)
+                      .all()
+                  : startEndDepthOnRaySection
+                      .lessThanEqual(currentMinMaxDepth.xx)
+                      .all()
+              )
               const isInShadow = (
                 builder.renderer.reversedDepthBuffer
                   ? startEndDepthOnRaySection
