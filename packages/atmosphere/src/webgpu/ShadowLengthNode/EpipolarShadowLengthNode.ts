@@ -190,7 +190,7 @@ export class EpipolarShadowLengthNode extends Node {
 
     const sampleShadow = FnVar(
       (
-        shadowUVAndDepthInLightSpace: Node<'vec3'>,
+        shadowUVInLightSpace: Node<'vec2'>,
         cascadeIndex: Node<'int'>,
         depthInLightSpace: Node<'float'>
       ): Node<'float'> => {
@@ -199,7 +199,7 @@ export class EpipolarShadowLengthNode extends Node {
           If(cascadeIndex.equal(cascade), () => {
             isInLight.assign(
               shadowDepthNodes[cascade]
-                .sample(shadowUVAndDepthInLightSpace.xy)
+                .sample(shadowUVInLightSpace.xy)
                 .compare(depthInLightSpace)
             )
           })
@@ -439,7 +439,7 @@ export class EpipolarShadowLengthNode extends Node {
             If(currentTreeLevel.lessThanEqual(minLevel), () => {
               isInLight.assign(
                 sampleShadow(
-                  currentShadowUVAndDepthInLightSpace,
+                  currentShadowUVAndDepthInLightSpace.xy,
                   cascadeIndex,
                   currentDepthInLightSpace
                 )
