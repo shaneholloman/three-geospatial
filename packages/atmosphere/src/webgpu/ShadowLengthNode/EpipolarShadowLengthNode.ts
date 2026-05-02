@@ -582,7 +582,7 @@ export class EpipolarShadowLengthNode extends Node {
         }
       )
 
-      // totalShadowLength.y contains the fist moment of shadow (m). It can be
+      // totalShadowLength.y contains the first moment of shadow (m). It can be
       // converted to the approximate distance to the first shadowed segment by:
       //   y = m/x - 0.5x
       //   m = \int_y^{y+x}{t}dt = yx + 0.5x^2
