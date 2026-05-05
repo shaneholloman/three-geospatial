@@ -1,5 +1,5 @@
 import { float, ivec2, struct, uint, uvec2, vec3 } from 'three/tsl'
-import type { NodeBuilder, StructNode } from 'three/webgpu'
+import { NodeBuilder, type Renderer, type StructNode } from 'three/webgpu'
 
 import { reinterpretType } from '@takram/three-geospatial'
 import type { Node, NodeType } from '@takram/three-geospatial/webgpu'
@@ -216,16 +216,18 @@ export class AtmosphereContextBase {
 }
 
 export function getAtmosphereContextBase(
-  builder: NodeBuilder
+  host: NodeBuilder | Renderer
 ): AtmosphereContextBase {
-  if (typeof builder.context.getAtmosphere !== 'function') {
-    throw new Error('getAtmosphere() was not found in the builder context.')
+  const hostContext =
+    host instanceof NodeBuilder ? host.context : host.contextNode.value
+  if (typeof hostContext.getAtmosphere !== 'function') {
+    throw new Error('getAtmosphere() was not found in the context.')
   }
-  const context = builder.context.getAtmosphere()
-  if (!(context instanceof AtmosphereContextBase)) {
+  const atmosphereContext = hostContext.getAtmosphere()
+  if (!(atmosphereContext instanceof AtmosphereContextBase)) {
     throw new Error(
       'getAtmosphere() must return an instanceof AtmosphereContextBase.'
     )
   }
-  return context
+  return atmosphereContext
 }

@@ -1,6 +1,6 @@
 import { Vector2, Vector3, type Camera } from 'three'
 import { uniform } from 'three/tsl'
-import type { NodeBuilder } from 'three/webgpu'
+import { NodeBuilder, type Renderer } from 'three/webgpu'
 
 import { Ellipsoid, Geodetic } from '@takram/three-geospatial'
 
@@ -126,15 +126,19 @@ export class AtmosphereContext extends AtmosphereContextBase {
 /** @deprecated Use AtmosphereContext instead. */
 export const AtmosphereContextNode = AtmosphereContext
 
-export function getAtmosphereContext(builder: NodeBuilder): AtmosphereContext {
-  if (typeof builder.context.getAtmosphere !== 'function') {
-    throw new Error('getAtmosphere() was not found in the builder context.')
+export function getAtmosphereContext(
+  host: NodeBuilder | Renderer
+): AtmosphereContext {
+  const hostContext =
+    host instanceof NodeBuilder ? host.context : host.contextNode.value
+  if (typeof hostContext.getAtmosphere !== 'function') {
+    throw new Error('getAtmosphere() was not found in the context.')
   }
-  const context = builder.context.getAtmosphere()
-  if (!(context instanceof AtmosphereContext)) {
+  const atmosphereContext = hostContext.getAtmosphere()
+  if (!(atmosphereContext instanceof AtmosphereContext)) {
     throw new Error(
       'getAtmosphere() must return an instanceof AtmosphereContext.'
     )
   }
-  return context
+  return atmosphereContext
 }

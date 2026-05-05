@@ -12,17 +12,17 @@ import {
   NodeUpdateType,
   TempNode,
   type NodeBuilder,
-  type NodeFrame
+  type NodeFrame,
+  type PMREMNode
 } from 'three/webgpu'
 
 import { QuadGeometry, radians } from '@takram/three-geospatial'
-import {
-  inverseProjectionMatrix,
-  OnBeforeFrameUpdate
-} from '@takram/three-geospatial/webgpu'
+import { inverseProjectionMatrix } from '@takram/three-geospatial/webgpu'
 
 import { getAtmosphereContext } from './AtmosphereContext'
 import { sky, type SkyNode } from './SkyNode'
+
+const vectorScratch = /*#__PURE__*/ new Vector3()
 
 export class SkyEnvironmentNode extends TempNode {
   static override get type(): string {
@@ -38,9 +38,17 @@ export class SkyEnvironmentNode extends TempNode {
   private readonly cubeCamera: CubeCamera
   private readonly material = new NodeMaterial()
   private readonly mesh = new Mesh(new QuadGeometry(), this.material)
+  private readonly pmremNode: PMREMNode
 
   private currentVersion?: number
-  private removeLUTUpdateListener?: () => void
+  private readonly prevCameraPosition = new Vector3()
+  private readonly prevSunDirection = new Vector3()
+  private readonly prevMoonDirection = new Vector3()
+
+  private removeLUTUpdate?: () => void
+  private readonly handleLUTUpdate = (): void => {
+    this.needsUpdate = true
+  }
 
   constructor(size = 64) {
     super('vec3')
@@ -52,31 +60,11 @@ export class SkyEnvironmentNode extends TempNode {
     this.skyNode.showMoon = false
     this.skyNode.showStars = false
 
-    this.renderTarget = new CubeRenderTarget(size, {
-      depthBuffer: false,
-      type: HalfFloatType,
-      format: RGBAFormat
-    })
-    this.cubeCamera = new CubeCamera(0.1, 1000, this.renderTarget)
-  }
-
-  override updateBefore({ renderer }: NodeFrame): void {
-    if (renderer == null || this.version === this.currentVersion) {
-      return
-    }
-    this.currentVersion = this.version
-    this.cubeCamera.update(renderer, this.mesh)
-  }
-
-  override setup(builder: NodeBuilder): unknown {
-    const atmosphereContext = getAtmosphereContext(builder)
-
-    const { camera, matrixWorldToECEF } = atmosphereContext
-
     const matrixViewToECEF = uniform('mat4')
       .setName('matrixViewToECEF')
-      .onRenderUpdate(({ camera }, { value }) => {
-        if (camera != null) {
+      .onRenderUpdate(({ renderer, camera }, { value }) => {
+        if (renderer != null && camera != null) {
+          const { matrixWorldToECEF } = getAtmosphereContext(renderer)
           value.multiplyMatrices(matrixWorldToECEF.value, camera.matrixWorld)
         }
       })
@@ -91,68 +79,91 @@ export class SkyEnvironmentNode extends TempNode {
         .normalize()
     })()
 
-    if (camera != null) {
-      const nextPosition = new Vector3()
-      const prevPosition = new Vector3()
-      OnBeforeFrameUpdate(() => {
-        // TODO: Ideally, this should be compared against the parameterization
-        // values of the LUT. (i.e. radius, angle between view and sun, etc.)
-        nextPosition
-          .copy(camera.position)
-          .divideScalar(this.distanceThreshold)
-          .round()
-        if (!prevPosition.equals(nextPosition)) {
-          prevPosition.copy(nextPosition)
-          this.needsUpdate = true
-        }
-      })
-    }
-
-    const sunDirection = atmosphereContext.sunDirectionECEF.value.clone()
-    OnBeforeFrameUpdate(() => {
-      const { value } = atmosphereContext.sunDirectionECEF
-      if (sunDirection.angleTo(value) > this.angularThreshold) {
-        sunDirection.copy(value)
-        this.needsUpdate = true
-      }
+    this.renderTarget = new CubeRenderTarget(size, {
+      depthBuffer: false,
+      type: HalfFloatType,
+      format: RGBAFormat
     })
-
-    const moonDirection = atmosphereContext.moonDirectionECEF.value.clone()
-    OnBeforeFrameUpdate(() => {
-      const { value } = atmosphereContext.moonDirectionECEF
-      if (moonDirection.angleTo(value) > this.angularThreshold) {
-        moonDirection.copy(value)
-        this.needsUpdate = true
-      }
-    })
-
-    const handleLUTUpdate = (): void => {
-      this.needsUpdate = true
-    }
-    atmosphereContext.lutNode.addEventListener(
-      // @ts-expect-error Cannot specify the events map
-      'update',
-      handleLUTUpdate
-    )
-    this.removeLUTUpdateListener?.()
-    this.removeLUTUpdateListener = () => {
-      atmosphereContext.lutNode.removeEventListener(
-        // @ts-expect-error Cannot specify the events map
-        'update',
-        handleLUTUpdate
-      )
-    }
+    this.cubeCamera = new CubeCamera(0.1, 1000, this.renderTarget)
 
     this.material.vertexNode = vec4(positionGeometry.xy, 0, 1)
     this.material.fragmentNode = this.skyNode
-    return pmremTexture(this.renderTarget.texture)
+    this.pmremNode = pmremTexture(this.renderTarget.texture)
+  }
+
+  override updateBefore({ renderer }: NodeFrame): void {
+    if (renderer == null) {
+      return
+    }
+
+    const { camera, sunDirectionECEF, moonDirectionECEF } =
+      getAtmosphereContext(renderer)
+
+    if (camera != null) {
+      const { prevCameraPosition: prevPosition } = this
+      const nextPosition = vectorScratch
+      // TODO: Ideally, this should be compared against the parameterization
+      // values of the LUT. (i.e. radius, angle between view and sun, etc.)
+      nextPosition
+        .copy(camera.position)
+        .divideScalar(this.distanceThreshold)
+        .round()
+      if (!prevPosition.equals(nextPosition)) {
+        prevPosition.copy(nextPosition)
+        this.needsUpdate = true
+      }
+    }
+
+    {
+      const { prevSunDirection: prevValue } = this
+      const { value } = sunDirectionECEF
+      if (prevValue.angleTo(value) > this.angularThreshold) {
+        prevValue.copy(value)
+        this.needsUpdate = true
+      }
+    }
+
+    {
+      const { prevMoonDirection: prevValue } = this
+      const { value } = moonDirectionECEF
+      if (prevValue.angleTo(value) > this.angularThreshold) {
+        prevValue.copy(value)
+        this.needsUpdate = true
+      }
+    }
+
+    if (this.version === this.currentVersion) {
+      return
+    }
+    this.currentVersion = this.version
+    this.cubeCamera.update(renderer, this.mesh)
+  }
+
+  // This setup can be called by many materials.
+  override setup(builder: NodeBuilder): unknown {
+    if (this.removeLUTUpdate == null) {
+      const { lutNode } = getAtmosphereContext(builder)
+      lutNode.addEventListener(
+        // @ts-expect-error Cannot specify the events map
+        'update',
+        this.handleLUTUpdate
+      )
+      this.removeLUTUpdate = () => {
+        lutNode.removeEventListener(
+          // @ts-expect-error Cannot specify the events map
+          'update',
+          this.handleLUTUpdate
+        )
+      }
+    }
+
+    return this.pmremNode
   }
 
   override dispose(): void {
-    this.removeLUTUpdateListener?.()
+    this.removeLUTUpdate?.()
 
     this.renderTarget.dispose()
-    this.skyNode.dispose() // TODO: Conditionally depending on the owner.
     this.material.dispose()
     this.mesh.geometry.dispose()
     super.dispose()
