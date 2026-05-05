@@ -6,7 +6,7 @@ import {
   RGBAFormat,
   Vector3
 } from 'three'
-import { Fn, pmremTexture, positionGeometry, vec4 } from 'three/tsl'
+import { Fn, pmremTexture, positionGeometry, uniform, vec4 } from 'three/tsl'
 import {
   NodeMaterial,
   NodeUpdateType,
@@ -18,7 +18,6 @@ import {
 import { QuadGeometry, radians } from '@takram/three-geospatial'
 import {
   inverseProjectionMatrix,
-  inverseViewMatrix,
   OnBeforeFrameUpdate
 } from '@takram/three-geospatial/webgpu'
 
@@ -52,13 +51,6 @@ export class SkyEnvironmentNode extends TempNode {
     this.skyNode.showSun = false
     this.skyNode.showMoon = false
     this.skyNode.showStars = false
-    this.skyNode.rayDirectionECEF = Fn(() => {
-      const positionView = inverseProjectionMatrix().mul(
-        vec4(positionGeometry, 1)
-      ).xyz
-      const directionWorld = inverseViewMatrix().mul(vec4(positionView, 0)).xyz
-      return directionWorld
-    })()
 
     this.renderTarget = new CubeRenderTarget(size, {
       depthBuffer: false,
@@ -77,9 +69,28 @@ export class SkyEnvironmentNode extends TempNode {
   }
 
   override setup(builder: NodeBuilder): unknown {
-    const context = getAtmosphereContext(builder)
+    const atmosphereContext = getAtmosphereContext(builder)
 
-    const { camera } = context
+    const { camera, matrixWorldToECEF } = atmosphereContext
+
+    const matrixViewToECEF = uniform('mat4')
+      .setName('matrixViewToECEF')
+      .onRenderUpdate(({ camera }, { value }) => {
+        if (camera != null) {
+          value.multiplyMatrices(matrixWorldToECEF.value, camera.matrixWorld)
+        }
+      })
+
+    this.skyNode.rayDirectionECEF = Fn(() => {
+      const positionView = inverseProjectionMatrix().mul(
+        vec4(positionGeometry, 1)
+      ).xyz
+      return matrixViewToECEF
+        .mul(vec4(positionView, 0))
+        .xyz.toVarying('rayDirectionECEF')
+        .normalize()
+    })()
+
     if (camera != null) {
       const nextPosition = new Vector3()
       const prevPosition = new Vector3()
@@ -97,18 +108,18 @@ export class SkyEnvironmentNode extends TempNode {
       })
     }
 
-    const sunDirection = context.sunDirectionECEF.value.clone()
+    const sunDirection = atmosphereContext.sunDirectionECEF.value.clone()
     OnBeforeFrameUpdate(() => {
-      const { value } = context.sunDirectionECEF
+      const { value } = atmosphereContext.sunDirectionECEF
       if (sunDirection.angleTo(value) > this.angularThreshold) {
         sunDirection.copy(value)
         this.needsUpdate = true
       }
     })
 
-    const moonDirection = context.moonDirectionECEF.value.clone()
+    const moonDirection = atmosphereContext.moonDirectionECEF.value.clone()
     OnBeforeFrameUpdate(() => {
-      const { value } = context.moonDirectionECEF
+      const { value } = atmosphereContext.moonDirectionECEF
       if (moonDirection.angleTo(value) > this.angularThreshold) {
         moonDirection.copy(value)
         this.needsUpdate = true
@@ -118,14 +129,14 @@ export class SkyEnvironmentNode extends TempNode {
     const handleLUTUpdate = (): void => {
       this.needsUpdate = true
     }
-    context.lutNode.addEventListener(
+    atmosphereContext.lutNode.addEventListener(
       // @ts-expect-error Cannot specify the events map
       'update',
       handleLUTUpdate
     )
     this.removeLUTUpdateListener?.()
     this.removeLUTUpdateListener = () => {
-      context.lutNode.removeEventListener(
+      atmosphereContext.lutNode.removeEventListener(
         // @ts-expect-error Cannot specify the events map
         'update',
         handleLUTUpdate
