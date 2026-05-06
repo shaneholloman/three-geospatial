@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added `skyBackdrop`.
+- Added `aerialPerspectiveBackdrop`.
+
+### Fixed
+
+- `SkyEnvironmentNode`: Fixed the regression in the node building performance.
+
 ## [0.19.1] - 2026-05-26
 
 ### Fixed
