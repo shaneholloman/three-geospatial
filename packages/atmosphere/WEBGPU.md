@@ -218,7 +218,6 @@ const shadowLengthNode = shadowLength(csmShadowNode, viewZUnitNode)
 renderPipeline.outputNode = aerialPerspective(
   colorNode,
   depthNode,
-  null,
   shadowLengthNode
 )
 ```
@@ -435,6 +434,9 @@ Whether to enable indirect sunlight. This must be turned off when you use an env
 
 A post-processing node that renders atmospheric transparency and inscattered light. It can optionally apply post-process lighting.
 
+- `aerialPerspective`: Accounts for inscattered light from the camera to scene objects.
+- `aerialPerspectiveBackdrop`: Accounts for inscattered light _behind_ the geometry. Used as a backdrop node in transparent materials.
+
 → [Source](/packages/atmosphere/src/webgpu/AerialPerspectiveNode.ts)
 
 ### Constructor
@@ -443,7 +445,10 @@ A post-processing node that renders atmospheric transparency and inscattered lig
 const aerialPerspective: (
   colorNode: Node,
   depthNode: Node,
-  normalNode?: Node | null,
+  shadowLengthNode?: Node | null
+) => AerialPerspectiveNode
+
+const aerialPerspectiveBackdrop: (
   shadowLengthNode?: Node | null
 ) => AerialPerspectiveNode
 ```
@@ -511,7 +516,7 @@ When `lighting` is enabled, surface normals are gradually morphed toward those o
 lighting = false
 ```
 
-Whether to apply direct and indirect irradiance as post-process lighting. This option requires `normalNode` to be set when enabled.
+Whether to apply direct and indirect irradiance as post-process lighting.
 
 #### transmittance, inscattering
 
@@ -530,8 +535,9 @@ Enabling one without the other is physically incorrect and should only be used f
 
 A node for rendering the sky. It provides 2 constructor functions for different types of view direction mapping.
 
-- `sky`: Uses the camera's view direction. Used in post-processing.
-- `skyBackground`: Interprets the material's UV as equirectangular. Used when assigning the scene's background.
+- `sky`: Renders the sky on a fullscreen quad.
+- `skyBackground`: Renders the sky using equirectangular mapping. Used when assigning to the scene's background.
+- `skyBackdrop`: Renders the sky on the backdrop geometry. Used as a backdrop node in transparent materials.
 
 ```ts
 import { skyBackground } from '@takram/three-atmosphere/webgpu'
@@ -549,6 +555,7 @@ scene.backgroundNode = skyBackground()
 ```ts
 const sky: (shadowLengthNode?: Node | null) => SkyNode
 const skyBackground: (shadowLengthNode?: Node | null) => SkyNode
+const skyBackdrop: (shadowLengthNode?: Node | null) => SkyNode
 ```
 
 ### Dependencies
