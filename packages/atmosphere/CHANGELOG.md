@@ -7,6 +7,31 @@
 - Added `skyBackdrop`.
 - Added `aerialPerspectiveBackdrop`.
 
+### Changed
+
+- BREAKING: `AerialPerspectiveNode`: Removed `normalNode` from the constructor function parameters. It changed from
+
+    ```ts
+    const aerialPerspective = (
+      colorNode: Node,
+      depthNode: Node,
+      normalNode?: Node | null,
+      shadowLengthNode?: Node | null
+    ): AerialPerspectiveNode
+    ```
+
+    to
+
+    ```ts
+    const aerialPerspective = (
+      colorNode: Node,
+      depthNode: Node,
+      shadowLengthNode?: Node | null
+    ): AerialPerspectiveNode
+    ```
+
+    The reason behind this change is that the current Lambertian post-process lighting is no longer recommended and may be removed later. While deferred shading itself is still useful and has its own benefits, it should not be integrated in `AerialPerspectiveNode`. Also, it should support more inputs like roughness/metalness buffers, in which case they should not be appended in the constructor parameters anyway.
+
 ### Fixed
 
 - `SkyEnvironmentNode`: Fixed the regression in the node building performance.
