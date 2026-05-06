@@ -4,7 +4,7 @@
 
 Work-in-progress WebGPU support for `@takram/three-atmosphere`.
 
-The atmospheric model is based on Eric Bruneton's [Precomputed Atmospheric Scattering](https://ebruneton.github.io/precomputed_atmospheric_scattering/) and uses the 4D scattering LUT with several improvements. The key difference from the original implementation is that higher-order scattering is computed using the multiple scattering LUT proposed in Sébastien Hillaire's [A Scalable and Production Ready Sky and Atmosphere Rendering Technique](https://sebh.github.io/publications/egsr2020.pdf). It also performs raymarching of inscattered light between the camera and scene objects by default, which completely eliminates artifacts due to floating-point precision.
+The atmospheric model is based on Eric Bruneton's [Precomputed Atmospheric Scattering](https://ebruneton.github.io/precomputed_atmospheric_scattering/) and uses the 4D scattering LUT with several improvements. The key difference from the original implementation is that higher-order scattering is computed using the multiple scattering LUT proposed in Sébastien Hillaire's [A Scalable and Production Ready Sky and Atmosphere Rendering Technique](https://sebh.github.io/publications/egsr2020.pdf). It also performs raymarching of scattered light between the camera and scene objects by default, which completely eliminates artifacts due to floating-point precision.
 
 Once all packages support WebGPU, the current implementation of the shader-chunk-based architecture will be archived and superseded by the node-based implementation.
 
@@ -71,7 +71,7 @@ scene.add(light)
 
 ### Aerial perspective
 
-[`AerialPerspectiveNode`](#-aerial-perspective-node) is a post-processing node that renders atmospheric transparency and inscattered light. It takes a color (beauty) buffer and a depth buffer, and also renders the sky for texels whose depth value is 1.
+[`AerialPerspectiveNode`](#-aerial-perspective-node) is a post-processing node that renders atmospheric transparency and scattered light. It takes a color (beauty) buffer and a depth buffer, and also renders the sky for texels whose depth value is 1.
 
 ```ts
 import { getSunDirectionECEF } from '@takram/three-atmosphere'
@@ -104,7 +104,7 @@ renderPipeline.outputNode = aerialPerspective(colorNode, depthNode)
 
 ### Sky
 
-[`SkyNode`](#-sky-node) replaces `SkyMaterial` and is also aggregated in `AerialPerspectiveNode`. Despite its name, it renders atmospheric transparency and inscattered light at infinite distance (or clamped to a virtual ground at the ellipsoidal surface), along with the sun, moon, and stars.
+[`SkyNode`](#-sky-node) replaces `SkyMaterial` and is also aggregated in `AerialPerspectiveNode`. Despite its name, it renders atmospheric transparency and scattered light at infinite distance (or clamped to a virtual ground at the ellipsoidal surface), along with the sun, moon, and stars.
 
 ```ts
 import {
@@ -177,7 +177,7 @@ Ellipsoid.WGS84.getNorthUpEastFrame(
 
 ### Light shafts
 
-Light shafts are produced by subtracting the inscattered light within shadowed segments of camera rays. [`ShadowLengthNode`](#-shadow-length-node) computes the shadow length along the camera ray using epipolar sampling and cascaded shadow maps.
+Light shafts are produced by subtracting the scattered light within shadowed segments of camera rays. [`ShadowLengthNode`](#-shadow-length-node) computes the shadow length along the camera ray using epipolar sampling and cascaded shadow maps.
 
 ```ts
 import { getSunDirectionECEF } from '@takram/three-atmosphere'
@@ -220,6 +220,47 @@ renderPipeline.outputNode = aerialPerspective(
   depthNode,
   shadowLengthNode
 )
+```
+
+### Transparent materials
+
+Transparent materials can be rendered using [`aerialPerspectiveBackdrop`](#-aerial-perspective-node) as a backdrop node. It accounts for scattered light behind the geometry, which is otherwise not included by `aerialPerspective` because it only computes scattering from the camera to the depth written by the transparent material.
+
+```ts
+import {
+  aerialPerspective,
+  aerialPerspectiveBackdrop
+} from '@takram/three-atmosphere/webgpu'
+import { pass } from 'three/tsl'
+import {
+  Mesh,
+  MeshPhysicalNodeMaterial,
+  RenderPipeline,
+  SphereGeometry
+} from 'three/webgpu'
+
+declare const scene: Scene
+declare const camera: Camera
+
+const mesh = new Mesh(
+  new SphereGeometry(),
+  new MeshPhysicalNodeMaterial({
+    color: 'yellow',
+    clearcoat: 1,
+    backdropNode: aerialPerspectiveBackdrop(),
+    // Note that "opacity" in the usual sense can be achieved by setting
+    // `backdropAlphaNode`, not `opacity`.
+    backdropAlphaNode: 0.5
+  })
+)
+scene.add(mesh)
+
+const passNode = pass(scene, camera, { samples: 0 })
+const colorNode = passNode.getTextureNode('output')
+const depthNode = passNode.getTextureNode('depth')
+
+const renderPipeline = new RenderPipeline(renderer)
+renderPipeline.outputNode = aerialPerspective(colorNode, depthNode)
 ```
 
 ## Changes from the WebGL API
@@ -368,7 +409,7 @@ Disable this option to constrain the camera's ray above the horizon, hiding the 
 raymarchScattering = true
 ```
 
-Whether to raymarch inscattered light between the camera and scene objects instead of computing it from LUT lookups.
+Whether to raymarch scattered light between the camera and scene objects instead of computing it from LUT lookups.
 
 > [!TIP]
 > Enabling this option might slightly increase computational cost depending on the device, but in general it is recommended to keep it enabled. Consider disabling it when the render output requires temporal stability, such as when temporal antialiasing cannot be used, because raymarching uses STBN which introduces temporal noise to reduce aliasing along the rays.
@@ -432,10 +473,10 @@ Whether to enable indirect sunlight. This must be turned off when you use an env
 
 ## AerialPerspectiveNode
 
-A post-processing node that renders atmospheric transparency and inscattered light. It can optionally apply post-process lighting.
+A post-processing node that renders atmospheric transparency and scattered light. It can optionally apply post-process lighting.
 
-- `aerialPerspective`: Accounts for inscattered light from the camera to scene objects.
-- `aerialPerspectiveBackdrop`: Accounts for inscattered light _behind_ the geometry. Used as a backdrop node in transparent materials.
+- `aerialPerspective`: Accounts for scattered light from the camera to scene objects.
+- `aerialPerspectiveBackdrop`: Accounts for scattered light _behind_ the geometry. Used as a backdrop node in transparent materials.
 
 → [Source](/packages/atmosphere/src/webgpu/AerialPerspectiveNode.ts)
 
