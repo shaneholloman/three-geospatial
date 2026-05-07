@@ -10,7 +10,7 @@ declare module '3d-tiles-renderer/three/plugins' {
   }
 }
 
-interface LayerInfo {
+interface ImageOverlay {
   color: Color
   opacity: number
   alphaMask: boolean
@@ -19,7 +19,7 @@ interface LayerInfo {
 
 export interface OverlayParams {
   layerMaps: { value: Array<Texture | null> }
-  layerInfo: { value: LayerInfo[] }
+  layerInfo: { value: ImageOverlay[] }
 }
 
 export class ImageOverlayPlugin extends ImageOverlayPluginBase {

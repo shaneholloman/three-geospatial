@@ -7,7 +7,6 @@ import {
   fwidth,
   If,
   materialColor,
-  materialOpacity,
   smoothstep,
   texture,
   uniform,
@@ -35,6 +34,15 @@ const layerMap = Array.from({ length: MAX_LAYER_COUNT }, (_, index) =>
   texture().onObjectUpdate(({ material }, self) => {
     const { [OVERLAY_PARAMS]: params } = material as OverlayNodeMaterial
     self.value = params!.layerMaps.value[index] ?? emptyTexture
+  })
+)
+
+// WORKAROUND: ImageBitmap with imageOrientation='flipY' flips the UV in WebGPU
+// renderer.
+const layerMapFlipY = Array.from({ length: MAX_LAYER_COUNT }, (_, index) =>
+  uniform('bool').onObjectUpdate(({ material }, self) => {
+    const { [OVERLAY_PARAMS]: params } = material as OverlayNodeMaterial
+    self.value = params!.layerMaps.value[index]?.image instanceof ImageBitmap
   })
 )
 
@@ -67,21 +75,23 @@ const layerAlphaInvert = Array.from({ length: MAX_LAYER_COUNT }, (_, index) =>
 )
 
 const layerUV = Array.from({ length: MAX_LAYER_COUNT }, (_, index) =>
-  attribute(`layer_uv_${index}`, 'vec3').toVarying()
+  attribute(`layer_uv_${index}`, 'vec3').toVarying(`layerUV${index}`)
 )
 
-const overlayNodeCache = new Map<number, Node>()
+const colorNodeCache = new Map<number, Node>()
 
-function getOverlayNode(layerCount: number): Node {
-  if (overlayNodeCache.has(layerCount)) {
-    return overlayNodeCache.get(layerCount)!
+function getColorNode(layerCount: number): Node {
+  if (colorNodeCache.has(layerCount)) {
+    return colorNodeCache.get(layerCount)!
   }
 
-  const overlayNode = Fn(() => {
-    const result = vec4(materialColor, materialOpacity).toVar()
+  const colorNode = Fn(() => {
+    const result = vec4(materialColor).toVar()
 
     for (let i = 0; i < layerCount; ++i) {
-      const tint = layerMap[i].sample(layerUV[i].xy).toVar()
+      const tint = layerMap[i]
+        .sample(layerMapFlipY[i].select(layerUV[i].xy.flipY(), layerUV[i].xy))
+        .toVar()
 
       // Discard texture outside 0, 1 on w - offset the stepped value by an
       // epsilon to avoid cases where wDelta is near 0 (eg a flat surface) at
@@ -108,11 +118,12 @@ function getOverlayNode(layerCount: number): Node {
         result.assign(tint.add(result.mul(tint.a.oneMinus())))
       })
     }
+
     return result
   })()
 
-  overlayNodeCache.set(layerCount, overlayNode)
-  return overlayNode
+  colorNodeCache.set(layerCount, colorNode)
+  return colorNode
 }
 
 export function wrapOverlaysNodeMaterial(
@@ -128,25 +139,22 @@ export function wrapOverlaysNodeMaterial(
     layerMaps: { value: [] },
     layerInfo: { value: [] }
   }
-
   material[OVERLAY_PARAMS] = params
 
-  let LAYER_COUNT = 0
+  let layerCount = 0
 
   // Use the same interface used for non-node materials:
   material.defines = {
     ...material.defines,
 
     get LAYER_COUNT() {
-      return LAYER_COUNT
+      return layerCount
     },
 
     set LAYER_COUNT(value: number) {
-      if (value !== LAYER_COUNT) {
-        LAYER_COUNT = value
-        const overlayNode = getOverlayNode(value)
-        material.colorNode = overlayNode.xyz
-        material.opacityNode = overlayNode.w
+      if (value !== layerCount) {
+        layerCount = value
+        material.colorNode = getColorNode(value)
       }
     }
   }

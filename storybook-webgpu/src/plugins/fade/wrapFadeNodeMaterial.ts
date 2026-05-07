@@ -69,21 +69,21 @@ export function wrapFadeNodeMaterial(material: NodeMaterial): FadeParams {
     fadeOut: { value: 0 },
     fadeTexture: { value: null }
   }
+  material[FADE_PARAMS] = params
 
-  let FEATURE_FADE = 0
+  let featureFade = 0
 
   // Use the same interface used for non-node materials:
-  material[FADE_PARAMS] = params
   material.defines = {
     ...material.defines,
 
     get FEATURE_FADE() {
-      return FEATURE_FADE
+      return featureFade
     },
 
     set FEATURE_FADE(value: number) {
-      if (value !== FEATURE_FADE) {
-        FEATURE_FADE = value
+      if (value !== featureFade) {
+        featureFade = value
         material.outputNode = value === 1 ? outputNode : null
       }
     }
