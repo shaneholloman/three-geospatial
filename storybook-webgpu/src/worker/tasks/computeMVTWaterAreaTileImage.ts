@@ -18,7 +18,7 @@ import { Transfer, type TransferResult } from '../transfer'
 
 const url = 'https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt'
 const maxDataLevel = 14
-const tileDimension = 256
+const tileDimension = 128 // We don't need much resolution.
 const dataDimension = 256
 
 const canvas = new OffscreenCanvas(tileDimension, tileDimension)

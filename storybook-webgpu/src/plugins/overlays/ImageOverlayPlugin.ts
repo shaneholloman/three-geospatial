@@ -3,13 +3,6 @@ import { Mesh, type Color, type Object3D, type Texture } from 'three'
 
 import { wrapOverlaysNodeMaterial } from './wrapOverlaysNodeMaterial'
 
-declare module '3d-tiles-renderer/three/plugins' {
-  interface ImageOverlayPlugin {
-    meshParams: Map<Object3D, {}>
-    _wrapMaterials(scene: Object3D): void
-  }
-}
-
 interface ImageOverlay {
   color: Color
   opacity: number
