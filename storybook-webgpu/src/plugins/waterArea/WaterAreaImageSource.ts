@@ -2,7 +2,7 @@ import {
   XYZImageSource,
   type XYZImageSourceOptions
 } from '3d-tiles-renderer/src/three/plugins/images/sources/XYZImageSource.js'
-import { SRGBColorSpace, Texture } from 'three'
+import { RedFormat, SRGBColorSpace, Texture } from 'three'
 
 import { queueTask } from '../../worker/pool'
 
@@ -39,6 +39,7 @@ export class WaterAreaImageSource extends XYZImageSource {
     })
 
     const texture = new Texture(image)
+    texture.format = RedFormat
     texture.generateMipmaps = false
     texture.colorSpace = SRGBColorSpace
     texture.needsUpdate = true
@@ -89,6 +90,7 @@ export class WaterAreaImageSource extends XYZImageSource {
     }
 
     const texture = new Texture(result.image)
+    texture.format = RedFormat
     texture.generateMipmaps = false
     texture.colorSpace = SRGBColorSpace
     texture.needsUpdate = true
