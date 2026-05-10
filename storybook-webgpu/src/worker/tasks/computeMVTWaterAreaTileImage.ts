@@ -210,7 +210,7 @@ const view = new View(cache, maxDataLevel, levelDiff)
 
 export interface MVTWaterAreaTileImage {
   image?: ImageBitmap
-  static?: 'land' | 'water'
+  solid?: 'land' | 'water'
 }
 
 export async function computeMVTWaterAreaTileImage(
@@ -232,10 +232,10 @@ export async function computeMVTWaterAreaTileImage(
 
     const preparedTile = await view.getDisplayTile(coordinate)
     if (isLandOnly(preparedTile)) {
-      return { static: 'land' }
+      return { solid: 'land' }
     }
     if (isWaterOnly(preparedTile)) {
-      return { static: 'land' }
+      return { solid: 'land' }
     }
 
     const preparedTileMap = new Map([['', [preparedTile]]])

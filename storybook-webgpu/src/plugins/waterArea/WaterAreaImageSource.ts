@@ -82,7 +82,7 @@ export class WaterAreaImageSource extends XYZImageSource {
     signal.removeEventListener('abort', onAbort)
 
     if (result.image == null) {
-      if (result.static === 'water') {
+      if (result.solid === 'water') {
         return await this.getWaterTexture()
       } else {
         return await this.getLandTexture()
