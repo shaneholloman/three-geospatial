@@ -56,13 +56,13 @@ export function usePointOfView({
       text += `latitude: ${Number(degrees(latitude).toFixed(4))},\n`
       text += `heading: ${Math.round(degrees(pov.heading))},\n`
       text += `pitch: ${Math.round(degrees(pov.pitch))},\n`
-      text += `distance: ${Math.round(pov.distance)}\n`
+      text += `distance: ${Math.round(pov.distance)},\n`
 
       const store = getDefaultStore()
       const args = store.get(argsAtom)
       text += `toneMappingExposure: ${args.toneMappingExposure},\n`
       text += `dayOfYear: ${args.dayOfYear},\n`
-      text += `timeOfDay: ${Number(args.timeOfDay?.toFixed(1))}\n`
+      text += `timeOfDay: ${Number(args.timeOfDay?.toFixed(1))},\n`
 
       console.log(text)
     }
