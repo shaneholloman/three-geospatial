@@ -2,9 +2,29 @@ import {
   XYZImageSource,
   type XYZImageSourceOptions
 } from '3d-tiles-renderer/src/three/plugins/images/sources/XYZImageSource.js'
-import { RedFormat, SRGBColorSpace, Texture } from 'three'
+import { CanvasTexture, RedFormat, SRGBColorSpace, Texture } from 'three'
 
 import { queueTask } from '../../worker/pool'
+
+function createSolidTexture(color: string): Texture {
+  const size = 4
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')!
+  context.fillStyle = color
+  context.fillRect(0, 0, size, size)
+
+  const texture = new CanvasTexture(canvas)
+  texture.format = RedFormat
+  texture.generateMipmaps = false
+  texture.colorSpace = SRGBColorSpace
+  texture.needsUpdate = true
+  return texture
+}
+
+const landTexture = createSolidTexture('#000')
+const waterTexture = createSolidTexture('#fff')
 
 export interface WaterAreaImageSourceOptions extends Omit<
   XYZImageSourceOptions,
@@ -12,46 +32,12 @@ export interface WaterAreaImageSourceOptions extends Omit<
 > {}
 
 export class WaterAreaImageSource extends XYZImageSource {
-  private landTexture?: Texture
-  private waterTexture?: Texture
-
   constructor({ levels = 20, ...options }: WaterAreaImageSourceOptions = {}) {
     super({
       ...options,
       levels,
       tileDimension: 128 // Tile size is fixed to 128px
     })
-  }
-
-  private async createColorTexture(color: string): Promise<Texture> {
-    const { tileDimension } = this
-    const canvas = document.createElement('canvas')
-    canvas.width = tileDimension
-    canvas.height = tileDimension
-    const context = canvas.getContext('2d')!
-    context.fillStyle = color
-    context.fillRect(0, 0, tileDimension, tileDimension)
-
-    const image = await createImageBitmap(canvas, {
-      premultiplyAlpha: 'none',
-      colorSpaceConversion: 'none',
-      imageOrientation: 'flipY'
-    })
-
-    const texture = new Texture(image)
-    texture.format = RedFormat
-    texture.generateMipmaps = false
-    texture.colorSpace = SRGBColorSpace
-    texture.needsUpdate = true
-    return texture
-  }
-
-  private async getLandTexture(): Promise<Texture> {
-    return (this.landTexture ??= await this.createColorTexture('#000'))
-  }
-
-  private async getWaterTexture(): Promise<Texture> {
-    return (this.waterTexture ??= await this.createColorTexture('#fff'))
   }
 
   override async fetchItem(
@@ -61,7 +47,7 @@ export class WaterAreaImageSource extends XYZImageSource {
     const [x, y, z] = tokens
 
     if (signal.aborted) {
-      return await this.getLandTexture()
+      return landTexture
     }
 
     const taskPromise = queueTask('computeWaterAreaTileImage', [{ x, y, z }])
@@ -76,16 +62,16 @@ export class WaterAreaImageSource extends XYZImageSource {
       result = await taskPromise
     } catch (error) {
       console.error(error)
-      return await this.getLandTexture()
+      return landTexture
     }
 
     signal.removeEventListener('abort', onAbort)
 
     if (result.image == null) {
       if (result.solid === 'water') {
-        return await this.getWaterTexture()
+        return waterTexture
       } else {
-        return await this.getLandTexture()
+        return landTexture
       }
     }
 
@@ -98,7 +84,7 @@ export class WaterAreaImageSource extends XYZImageSource {
   }
 
   override disposeItem(texture: Texture): void {
-    if (texture === this.landTexture || texture === this.waterTexture) {
+    if (texture === landTexture || texture === waterTexture) {
       return // We reuse these textures
     }
     super.disposeItem(texture)
