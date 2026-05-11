@@ -376,6 +376,8 @@ export const Story: StoryFC<StoryProps, StoryArgs> = ({ fov, ...props }) => (
     camera={{ fov }}
     renderer={{
       onInit: renderer => {
+        // @ts-expect-error Missing type
+        renderer.shadowMap.transmitted = true
         renderer.library.addLight(AtmosphereLightNode, AtmosphereLight)
       }
     }}

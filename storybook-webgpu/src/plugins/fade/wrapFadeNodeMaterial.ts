@@ -1,18 +1,21 @@
 // Ported to TSL from: https://github.com/NASA-AMMOS/3DTilesRendererJS/blob/v0.4.14/src/three/plugins/fade/wrapFadeMaterial.js
 
 import { Discard, Fn, If, output, screenCoordinate, uniform } from 'three/tsl'
-import type { NodeMaterial } from 'three/webgpu'
+import type { NodeFrame, NodeMaterial } from 'three/webgpu'
 
-import { reinterpretType } from '@takram/three-geospatial'
 import { FnLayout } from '@takram/three-geospatial/webgpu'
 
 import type { FadeParams } from './FadeMaterialManager'
 
 const FADE_PARAMS = Symbol('FADE_PARAMS')
 
-interface FadeNodeMaterial extends NodeMaterial {
+interface FadeParamsHost {
   [FADE_PARAMS]?: FadeParams
   defines?: Record<string, unknown>
+}
+
+function getFadeParams({ material }: NodeFrame): FadeParams | undefined {
+  return (material as FadeParamsHost)[FADE_PARAMS]
 }
 
 const bayerDither2x2 = FnLayout({
@@ -33,13 +36,13 @@ const bayerDither4x4 = FnLayout({
   return bayerDither2x2(P1).mul(4).add(bayerDither2x2(P2))
 })
 
-const fadeIn = uniform(0).onObjectUpdate(({ material }, self) => {
-  const { [FADE_PARAMS]: params } = (material ?? {}) as FadeNodeMaterial
+const fadeIn = uniform(0).onObjectUpdate((frame, self) => {
+  const params = getFadeParams(frame)
   self.value = params?.fadeIn.value ?? 0
 })
 
-const fadeOut = uniform(0).onObjectUpdate(({ material }, self) => {
-  const { [FADE_PARAMS]: params } = (material ?? {}) as FadeNodeMaterial
+const fadeOut = uniform(0).onObjectUpdate((frame, self) => {
+  const params = getFadeParams(frame)
   self.value = params?.fadeOut.value ?? 0
 })
 
@@ -57,9 +60,9 @@ const outputNode = Fn(() => {
   return output
 })()
 
-export function wrapFadeNodeMaterial(material: NodeMaterial): FadeParams {
-  reinterpretType<FadeNodeMaterial>(material)
-
+export function wrapFadeNodeMaterial(
+  material: NodeMaterial & FadeParamsHost
+): FadeParams {
   if (material[FADE_PARAMS] != null) {
     return material[FADE_PARAMS]
   }

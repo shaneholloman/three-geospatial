@@ -1,25 +1,22 @@
 import {
   cameraPosition,
   color,
+  Discard,
   Fn,
+  If,
   materialColor,
   mix,
   normalView,
   positionView,
-  property,
   vec3,
   vec4
 } from 'three/tsl'
-import {
-  MeshPhysicalNodeMaterial,
-  type Node,
-  type NodeBuilder
-} from 'three/webgpu'
+import { MeshPhysicalNodeMaterial, type Node } from 'three/webgpu'
 
 import { getAtmosphereContext } from '@takram/three-atmosphere/webgpu'
 import { rayEllipsoidIntersection } from '@takram/three-geospatial/webgpu'
 
-export const waterAreaMask = property('float', 'waterAreaMask')
+import { waterAreaMask } from './wrapWaterAreaNodeMaterial'
 
 const positionECEF = Fn(builder => {
   const { matrixViewToECEF } = getAtmosphereContext(builder)
@@ -63,20 +60,20 @@ const specularIntensityNode = mix(0, 1, waterAreaMask)
 
 const normalNode = mix(normalView, ellipsoidNormalView, waterAreaMask)
 
+const castShadowNode = Fn(() => {
+  If(waterAreaMask.greaterThan(0), () => {
+    Discard() // Prevent water tiles from casting shadows
+  })
+  return vec4(0, 0, 0, 1)
+})()
+
 export class WaterAreaNodeMaterial extends MeshPhysicalNodeMaterial {
   override ior = 1.33
   override metalness = 0
   override colorNode = colorNode
   override roughnessNode = roughnessNode
   override specularIntensityNode = specularIntensityNode
-
-  waterAreaMaskNode: Node = vec3(0)
-
-  override setupDiffuseColor(builder: NodeBuilder): void {
-    // waterAreaMask must be assigned here since colorNode depends on it.
-    waterAreaMask.assign(this.waterAreaMaskNode)
-    super.setupDiffuseColor(builder)
-  }
+  override castShadowNode = castShadowNode
 
   override setupNormal(): Node {
     return normalNode

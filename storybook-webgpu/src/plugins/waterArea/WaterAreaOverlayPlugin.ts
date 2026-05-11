@@ -26,7 +26,7 @@ export class WaterAreaOverlayPlugin extends ImageOverlayPlugin {
   override _wrapMaterials(scene: Object3D): void {
     scene.traverse(object => {
       if (object instanceof Mesh) {
-        const params = wrapWaterAreaNodeMaterial(object.material)
+        const params = wrapWaterAreaNodeMaterial(object.material, object)
         this.meshParams.set(object, params)
       }
     })
