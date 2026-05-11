@@ -64,7 +64,7 @@ function createStorageTexture(name: string): StorageTexture {
   return texture
 }
 
-const sizeScratch = /*#__PURE__*/ new Vector2()
+const sizeScratch = new Vector2()
 
 // TODO: Refine and move to core.
 export class LongExposureNode extends TempNode {

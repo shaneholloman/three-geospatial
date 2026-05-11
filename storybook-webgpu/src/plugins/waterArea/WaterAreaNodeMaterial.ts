@@ -16,7 +16,7 @@ import { rayEllipsoidIntersection } from '@takram/three-geospatial/webgpu'
 
 import { layerColor } from './wrapWaterAreaNodeMaterial'
 
-export const positionECEF = Fn(builder => {
+const positionECEF = Fn(builder => {
   const { matrixViewToECEF } = getAtmosphereContext(builder)
   return matrixViewToECEF.mul(vec4(positionView, 1)).xyz
 })()
@@ -32,12 +32,12 @@ const ellipsoidPositionECEF = Fn(builder => {
   return rayDirectionECEF.mul(intersection).add(cameraPosition)
 })()
 
-export const ellipsoidNormalECEF = Fn(builder => {
+const ellipsoidNormalECEF = Fn(builder => {
   const { ellipsoid } = getAtmosphereContext(builder)
   return positionECEF.div(vec3(ellipsoid.radii).pow2()).normalize()
 })()
 
-export const ellipsoidNormalView = Fn(builder => {
+const ellipsoidNormalView = Fn(builder => {
   const { matrixECEFToView } = getAtmosphereContext(builder)
   return matrixECEFToView.mul(vec4(ellipsoidNormalECEF, 0)).xyz.normalize()
 })()

@@ -25,8 +25,8 @@ interface OverlayNodeMaterial extends NodeMaterial {
   defines: Record<string, unknown>
 }
 
-const emptyTexture = /*#__PURE__*/ new Texture()
-const emptyColor = /*#__PURE__*/ new Color()
+const emptyTexture = new Texture()
+const emptyColor = new Color()
 
 const MAX_LAYER_COUNT = 10
 

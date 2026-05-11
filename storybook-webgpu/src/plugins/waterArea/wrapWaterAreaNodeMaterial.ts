@@ -13,7 +13,7 @@ interface OverlayNodeMaterial extends NodeMaterial {
   defines: Record<string, unknown>
 }
 
-const emptyTexture = /*#__PURE__*/ new Texture()
+const emptyTexture = new Texture()
 
 const layerMap = texture().onObjectUpdate(({ material }, self) => {
   const { [OVERLAY_PARAMS]: params } = material as OverlayNodeMaterial
