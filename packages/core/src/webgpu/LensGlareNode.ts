@@ -21,7 +21,6 @@ import {
   struct,
   texture,
   uniform,
-  uvec2,
   vec2,
   vec3,
   vec4
@@ -30,6 +29,7 @@ import {
   IndirectStorageBufferAttribute,
   MeshBasicNodeMaterial,
   RendererUtils,
+  StorageInstancedBufferAttribute,
   type ComputeNode,
   type NodeBuilder,
   type NodeFrame,
@@ -125,7 +125,7 @@ export class LensGlareNode extends FilterNode {
     new Uint32Array([6, 0, 0, 0, 0]),
     1
   )
-  private instanceBuffer = instancedArray(1, instanceStruct)
+  private readonly instanceBuffer = instancedArray(1, instanceStruct)
 
   private readonly renderTarget = this.createRenderTarget()
   private readonly material = new MeshBasicNodeMaterial({
@@ -138,6 +138,7 @@ export class LensGlareNode extends FilterNode {
   private readonly camera = new PerspectiveCamera()
   private rendererState?: RendererUtils.RendererState
 
+  private readonly tileSize = uniform('uvec2')
   private readonly inputTexelSize = uniform('vec2')
   private readonly outputTexelSize = uniform('vec2')
   private readonly geometryRatio = uniform('vec2')
@@ -164,12 +165,18 @@ export class LensGlareNode extends FilterNode {
 
     const tileWidth = Math.floor(w / 2)
     const tileHeight = Math.floor(h / 2)
-    const bufferCount = Math.ceil(tileWidth * tileHeight * 1.5) // Add a little room to grow
+    this.tileSize.value.set(tileWidth, tileHeight)
 
-    if (this.instanceBuffer.bufferCount < bufferCount) {
-      this.instanceBuffer.dispose()
-      this.instanceBuffer = instancedArray(bufferCount, instanceStruct)
-      this.setupCompute(tileWidth, tileHeight)
+    const bufferCount = Math.ceil(tileWidth * tileHeight)
+    const { instanceBuffer } = this
+    if (instanceBuffer.bufferCount < bufferCount) {
+      instanceBuffer.value = new StorageInstancedBufferAttribute(
+        bufferCount,
+        instanceBuffer.value.itemSize
+      )
+      instanceBuffer.bufferCount = bufferCount
+
+      this.setupCompute()
       this.setupMaterial()
     }
     return this
@@ -208,7 +215,12 @@ export class LensGlareNode extends FilterNode {
     indirectBuffer.array[1] = 0
     indirectBuffer.needsUpdate = true
 
-    void renderer.compute(computeNode)
+    const { width: tileWidth, height: tileHeight } = this.tileSize.value
+    void renderer.compute(computeNode, [
+      Math.ceil(tileWidth / 8),
+      Math.ceil(tileHeight / 8),
+      1
+    ])
 
     this.rendererState = resetRendererState(renderer, this.rendererState)
 
@@ -218,12 +230,13 @@ export class LensGlareNode extends FilterNode {
     restoreRendererState(renderer, this.rendererState)
   }
 
-  private setupCompute(tileWidth: number, tileHeight: number): void {
+  private setupCompute(): void {
     const {
       quadCount,
       inputNode,
       indirectBuffer,
       instanceBuffer,
+      tileSize,
       outputTexelSize
     } = this
     invariant(inputNode != null, 'inputNode cannot be null during setup.')
@@ -235,7 +248,6 @@ export class LensGlareNode extends FilterNode {
     ).toAtomic()
 
     this.computeNode = Fn(() => {
-      const tileSize = uvec2(tileWidth, tileHeight)
       If(globalId.xy.greaterThanEqual(tileSize).any(), () => {
         Return()
       })
@@ -260,11 +272,9 @@ export class LensGlareNode extends FilterNode {
           instance.get('cos').assign(Math.cos(angle))
         }
       })
-    })().compute(
-      // @ts-expect-error "count" can be dimensional
-      [Math.ceil(tileWidth / 8), Math.ceil(tileHeight / 8), 1],
-      [8, 8, 1]
-    )
+    })()
+      .computeKernel([8, 8, 1])
+      .setName('LensGlare')
   }
 
   private setupMaterial(): void {
@@ -290,7 +300,8 @@ export class LensGlareNode extends FilterNode {
       const rotation = mat3(cos, sin, 0, sin.negate(), cos, 0, 0, 0, 1)
 
       const positionTile = instance.get('position')
-      const uv = positionTile.mul(outputTexelSize).mul(2)
+      const texelSize = outputTexelSize.mul(2)
+      const uv = positionTile.mul(texelSize).toConst()
       const positionNDC = uv.flipY().mul(2).sub(1)
 
       const luminance = instance.get('luminance')
