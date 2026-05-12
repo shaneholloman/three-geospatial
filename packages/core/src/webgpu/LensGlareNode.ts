@@ -44,7 +44,7 @@ import { hashValues } from './utils'
 
 const { resetRendererState, restoreRendererState } = RendererUtils
 
-const spikeColors: ReadonlyArray<[number, string]> = [
+const glareColors: ReadonlyArray<[number, string]> = [
   [0.0, '#000'],
   [0.25, '#666633'],
   [0.35, '#996633'],
@@ -55,7 +55,7 @@ const spikeColors: ReadonlyArray<[number, string]> = [
   [1, '#666']
 ]
 
-function createSpikeTexture(): CanvasTexture {
+function createQuadTexture(): CanvasTexture {
   const width = 256
   const height = 32
   const canvas = document.createElement('canvas')
@@ -64,10 +64,10 @@ function createSpikeTexture(): CanvasTexture {
   const context = canvas.getContext('2d')!
 
   const colorGradient = context.createLinearGradient(0, 0, width, 0)
-  spikeColors.forEach(([t, color]) => {
+  glareColors.forEach(([t, color]) => {
     colorGradient.addColorStop(t * 0.5, color)
   })
-  spikeColors.forEach(([t, color]) => {
+  glareColors.forEach(([t, color]) => {
     colorGradient.addColorStop(1 - t * 0.5, color)
   })
   context.fillStyle = colorGradient
@@ -109,8 +109,8 @@ export class LensGlareNode extends FilterNode {
     return 'LensGlareNode'
   }
 
-  spikeNode = texture(createSpikeTexture())
-  spikePairCount = 6
+  quadNode = texture(createQuadTexture())
+  quadCount = 6
   wireframe = false
 
   intensity = uniform(1e-5)
@@ -153,7 +153,7 @@ export class LensGlareNode extends FilterNode {
   }
 
   override customCacheKey(): number {
-    return hashValues(this.spikePairCount, this.wireframe)
+    return hashValues(this.quadCount, this.wireframe)
   }
 
   setSize(width: number, height: number): this {
@@ -220,7 +220,7 @@ export class LensGlareNode extends FilterNode {
 
   private setupCompute(tileWidth: number, tileHeight: number): void {
     const {
-      spikePairCount,
+      quadCount,
       inputNode,
       indirectBuffer,
       instanceBuffer,
@@ -246,11 +246,8 @@ export class LensGlareNode extends FilterNode {
 
       If(inputLuminance.greaterThan(0.1), () => {
         // The first element is instanceCount in the drawIndexedIndirect buffer.
-        const countBefore = atomicAdd(
-          indirectStorage.element(1),
-          spikePairCount
-        )
-        for (let i = 0; i < spikePairCount; ++i) {
+        const countBefore = atomicAdd(indirectStorage.element(1), quadCount)
+        for (let i = 0; i < quadCount; ++i) {
           const instance = instanceBuffer.element(countBefore.add(i))
           instance.get('color').assign(inputColor.rgb)
           instance.get('luminance').assign(inputLuminance)
@@ -258,7 +255,7 @@ export class LensGlareNode extends FilterNode {
           instance.get('scale').assign(i % 2 === 0 ? 1 : 0.5)
 
           const phi = Math.PI * (3 - Math.sqrt(5))
-          const angle = (Math.PI / spikePairCount) * i + phi
+          const angle = (Math.PI / quadCount) * i + phi
           instance.get('sin').assign(Math.sin(angle))
           instance.get('cos').assign(Math.cos(angle))
         }
@@ -272,7 +269,7 @@ export class LensGlareNode extends FilterNode {
 
   private setupMaterial(): void {
     const {
-      spikeNode,
+      quadNode,
       instanceBuffer,
       luminanceThreshold,
       intensity,
@@ -285,7 +282,7 @@ export class LensGlareNode extends FilterNode {
 
     this.material.colorNode = this.wireframe
       ? vec4(1)
-      : spikeNode.mul(instance.get('color').mul(intensity))
+      : quadNode.mul(instance.get('color').mul(intensity))
 
     this.material.vertexNode = Fn(() => {
       const sin = instance.get('sin')
