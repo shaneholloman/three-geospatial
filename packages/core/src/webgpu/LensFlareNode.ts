@@ -87,7 +87,6 @@ export class LensFlareNode extends TempNode {
     const bloom = bloomNode.getTextureNode().mul(this.bloomIntensity)
     const glare = glareNode.getTextureNode()
 
-    // TODO: Add an option to switch to mixing the bloom:
     return Fn(() => {
       // TODO: Prevent the output from becoming too bright.
       const output = inputNode
