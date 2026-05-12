@@ -44,31 +44,54 @@ import { hashValues } from './utils'
 
 const { resetRendererState, restoreRendererState } = RendererUtils
 
+const spikeColors: ReadonlyArray<[number, string]> = [
+  [0.0, '#000'],
+  [0.25, '#666633'],
+  [0.35, '#996633'],
+  [0.45, '#9999cc'],
+  [0.5, '#99ccff'],
+  [0.65, '#fff'],
+  [0.9, '#ccc'],
+  [1, '#666']
+]
+
 function createSpikeTexture(): CanvasTexture {
   const width = 256
   const height = 32
-  const margin = 5
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
-  const context = canvas.getContext('2d')
-  invariant(context != null)
+  const context = canvas.getContext('2d')!
 
-  context.beginPath()
-  context.moveTo(0, height / 2)
-  context.lineTo(width / 2, margin)
-  context.lineTo(width, height / 2)
-  context.lineTo(width / 2, height - margin)
-  context.closePath()
+  const colorGradient = context.createLinearGradient(0, 0, width, 0)
+  spikeColors.forEach(([t, color]) => {
+    colorGradient.addColorStop(t * 0.5, color)
+  })
+  spikeColors.forEach(([t, color]) => {
+    colorGradient.addColorStop(1 - t * 0.5, color)
+  })
+  context.fillStyle = colorGradient
+  context.fillRect(0, 0, width, height)
 
-  const gradient = context.createLinearGradient(0, 0, width, 0)
-  gradient.addColorStop(0, '#000000')
-  gradient.addColorStop(0.5, '#ffffff')
-  gradient.addColorStop(1, '#000000')
-  context.fillStyle = gradient
-  context.fill()
+  const gradientX = context.createLinearGradient(0, 0, width, 0)
+  gradientX.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  gradientX.addColorStop(0.5, 'rgba(0, 0, 0, 0)')
+  gradientX.addColorStop(1, 'rgba(0, 0, 0, 1)')
+  context.fillStyle = gradientX
+  context.fillRect(0, 0, width, height)
 
-  return new CanvasTexture(canvas)
+  const gradientY = context.createLinearGradient(0, 0, 0, height)
+  gradientY.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  gradientY.addColorStop(0.25, 'rgba(0, 0, 0, 0)')
+  gradientY.addColorStop(0.75, 'rgba(0, 0, 0, 0)')
+  gradientY.addColorStop(1, 'rgba(0, 0, 0, 1)')
+  context.fillStyle = gradientY
+  context.fillRect(0, 0, width, height)
+
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  texture.needsUpdate = true
+  return texture
 }
 
 const instanceStruct = /*#__PURE__*/ struct({
