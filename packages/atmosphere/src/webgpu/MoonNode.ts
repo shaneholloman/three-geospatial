@@ -1,5 +1,4 @@
 import {
-  cos,
   dFdx,
   dFdy,
   equirectUV,
@@ -126,7 +125,11 @@ export class MoonNode extends TempNode {
     } = atmosphereContext
 
     return Fn(() => {
-      const chordThreshold = cos(this.angularRadius).oneMinus().mul(2)
+      // See: https://github.com/takram-design-engineering/three-geospatial/issues/110#issuecomment-4363786179
+      const cosAngularRadius = uniform('float').onFrameUpdate(() =>
+        Math.cos(this.angularRadius.value)
+      )
+      const chordThreshold = cosAngularRadius.oneMinus().mul(2)
       const chordVector = rayDirectionECEF.sub(directionECEF)
       const chordLength = chordVector.dot(chordVector)
       const filterWidth = fwidth(chordLength)

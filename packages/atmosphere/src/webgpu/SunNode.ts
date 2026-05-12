@@ -1,4 +1,4 @@
-import { cos, Fn, fwidth, If, smoothstep, uniform, vec4 } from 'three/tsl'
+import { Fn, fwidth, If, smoothstep, uniform, vec4 } from 'three/tsl'
 import { TempNode, type NodeBuilder } from 'three/webgpu'
 
 import type { Node } from '@takram/three-geospatial/webgpu'
@@ -30,7 +30,11 @@ export class SunNode extends TempNode {
     const { sunDirectionECEF } = atmosphereContext
 
     return Fn(() => {
-      const chordThreshold = cos(this.angularRadius).oneMinus().mul(2)
+      // See: https://github.com/takram-design-engineering/three-geospatial/issues/110#issuecomment-4363786179
+      const cosAngularRadius = uniform('float').onFrameUpdate(() =>
+        Math.cos(this.angularRadius.value)
+      )
+      const chordThreshold = cosAngularRadius.oneMinus().mul(2)
       const chordVector = rayDirectionECEF.sub(sunDirectionECEF)
       const chordLength = chordVector.dot(chordVector)
       const filterWidth = fwidth(chordLength)
