@@ -1,5 +1,4 @@
 import {
-  convertToTexture,
   Fn,
   globalId,
   If,
@@ -33,7 +32,11 @@ import {
 } from 'three/webgpu'
 
 import { reinterpretType } from '@takram/three-geospatial'
-import { outputTexture, type Node } from '@takram/three-geospatial/webgpu'
+import {
+  convertToTexture,
+  outputTexture,
+  type Node
+} from '@takram/three-geospatial/webgpu'
 
 const { resetRendererState, restoreRendererState } = RendererUtils
 
