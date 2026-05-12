@@ -119,7 +119,7 @@ export class LensGlareNode extends FilterNode {
     super(inputNode)
     this.material.name = 'LensGlare'
 
-    this.inputNode = inputNode
+    this.inputNode = inputNode ?? null
     this.resolutionScale = 0.5
 
     this.outputTexture = this.renderTarget.texture
@@ -155,12 +155,17 @@ export class LensGlareNode extends FilterNode {
     }
 
     const { inputNode } = this
-    invariant(inputNode != null)
+    if (inputNode == null) {
+      return
+    }
+
     const { width: inputWidth, height: inputHeight } = inputNode.value
     this.setSize(inputWidth, inputHeight) // Compute node is initialized here.
 
     const { computeNode, indirectBuffer, renderTarget } = this
-    invariant(computeNode != null)
+    if (computeNode == null) {
+      return
+    }
 
     this.inputTexelSize.value.set(1 / inputWidth, 1 / inputHeight)
     const aspectRatio = inputWidth / inputHeight
@@ -195,7 +200,7 @@ export class LensGlareNode extends FilterNode {
       instanceBuffer,
       outputTexelSize
     } = this
-    invariant(inputNode != null)
+    invariant(inputNode != null, 'inputNode cannot be null during setup.')
 
     const indirectStorage = storage(
       indirectBuffer,
@@ -250,8 +255,9 @@ export class LensGlareNode extends FilterNode {
       outputTexelSize,
       geometryRatio
     } = this
-    invariant(inputNode != null)
-    invariant(spikeNode != null)
+
+    invariant(inputNode != null, 'inputNode cannot be null during setup.')
+    invariant(spikeNode != null, 'spikeNode cannot be null during setup.')
 
     const instance = instanceBuffer.element(instanceIndex)
 

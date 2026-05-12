@@ -136,7 +136,9 @@ type TextureNodeLike = Node & {
 }
 
 export function convertToTexture(node: TextureNodeLike): TextureNode
-export function convertToTexture(node?: null): null
+export function convertToTexture(
+  node?: TextureNodeLike | null
+): TextureNode | null
 export function convertToTexture(
   node?: TextureNodeLike | null
 ): TextureNode | null {
