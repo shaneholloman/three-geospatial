@@ -1,5 +1,4 @@
 import {
-  LinearFilter,
   NoColorSpace,
   type Data3DTextureImageData,
   type DataTextureImageData,
@@ -61,8 +60,6 @@ import {
 
 export function createStorageTexture(name: string): StorageTexture {
   const texture = new StorageTexture(1, 1)
-  texture.minFilter = LinearFilter
-  texture.magFilter = LinearFilter
   texture.colorSpace = NoColorSpace
   texture.generateMipmaps = false
   texture.name = `AtmosphereLUT_${name}`
@@ -71,8 +68,6 @@ export function createStorageTexture(name: string): StorageTexture {
 
 export function createStorage3DTexture(name: string): Storage3DTexture {
   const texture = new Storage3DTexture(1, 1, 1)
-  texture.minFilter = LinearFilter
-  texture.magFilter = LinearFilter
   texture.colorSpace = NoColorSpace
   texture.generateMipmaps = false
   texture.name = `AtmosphereLUT_${name}`

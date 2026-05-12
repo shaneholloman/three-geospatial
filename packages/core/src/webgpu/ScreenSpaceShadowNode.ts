@@ -19,7 +19,6 @@
  */
 
 import {
-  LinearFilter,
   Matrix4,
   NoColorSpace,
   Vector2,
@@ -138,8 +137,6 @@ export class ScreenSpaceShadowNode extends TempNode {
 
     const texture = new StorageTexture(1, 1)
     texture.colorSpace = NoColorSpace
-    texture.minFilter = LinearFilter
-    texture.magFilter = LinearFilter
     texture.generateMipmaps = false
     texture.name = 'ScreenSpaceShadow'
 

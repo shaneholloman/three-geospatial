@@ -51,6 +51,7 @@ function createStorageTexture(name: string): StorageTexture {
   const texture = new StorageTexture(1, 1)
   texture.type = FloatType
   texture.format = RedFormat
+  texture.generateMipmaps = false
   texture.name = `LongExposure_${name}`
   return texture
 }

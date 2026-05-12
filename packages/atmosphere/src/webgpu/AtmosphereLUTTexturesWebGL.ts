@@ -1,5 +1,4 @@
 import {
-  LinearFilter,
   NoColorSpace,
   RenderTarget,
   RenderTarget3D,
@@ -62,10 +61,7 @@ function createRenderTarget(name: string): RenderTarget {
     format: RGBAFormat
   })
   const texture = renderTarget.texture
-  texture.minFilter = LinearFilter
-  texture.magFilter = LinearFilter
   texture.colorSpace = NoColorSpace
-  texture.generateMipmaps = false
   texture.name = `AtmosphereLUT_${name}`
   return renderTarget
 }
@@ -76,10 +72,7 @@ function createRenderTarget3D(name: string): RenderTarget3D {
     format: RGBAFormat
   })
   const texture = renderTarget.texture as unknown as Data3DTexture
-  texture.minFilter = LinearFilter
-  texture.magFilter = LinearFilter
   texture.colorSpace = NoColorSpace
-  texture.generateMipmaps = false
   texture.name = `AtmosphereLUT_${name}`
   return renderTarget
 }
