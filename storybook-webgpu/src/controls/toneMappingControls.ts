@@ -15,6 +15,7 @@ import invariant from 'tiny-invariant'
 
 import { reinterpretType } from '@takram/three-geospatial'
 
+import { AgXPunchyToneMapping } from '../helpers/AgxToneMapping'
 import { useSpringControl } from '../hooks/useSpringControl'
 import { useTransientControl } from '../hooks/useTransientControl'
 
@@ -28,7 +29,7 @@ export const toneMappingArgs = (
   defaults?: Partial<ToneMappingArgs>
 ): ToneMappingArgs => ({
   toneMapping: true,
-  toneMappingMode: AgXToneMapping,
+  toneMappingMode: AgXPunchyToneMapping,
   toneMappingExposure: 1,
   ...defaults
 })
@@ -54,6 +55,7 @@ export const toneMappingArgTypes = (
       CineonToneMapping,
       ACESFilmicToneMapping,
       AgXToneMapping,
+      AgXPunchyToneMapping,
       NeutralToneMapping
     ],
     control: {
@@ -64,6 +66,7 @@ export const toneMappingArgTypes = (
         [CineonToneMapping]: 'Cineon',
         [ACESFilmicToneMapping]: 'ACES Filmic',
         [AgXToneMapping]: 'AgX',
+        [AgXPunchyToneMapping]: 'AgX Punchy',
         [NeutralToneMapping]: 'Khronos PBR Neutral'
       }
     },

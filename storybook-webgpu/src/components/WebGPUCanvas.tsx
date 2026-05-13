@@ -2,10 +2,13 @@ import styled from '@emotion/styled'
 import { Canvas, type CanvasProps } from '@react-three/fiber'
 import { atom, useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, type FC, type MouseEvent } from 'react'
-import type { WebGPURendererParameters } from 'three/src/renderers/webgpu/WebGPURenderer.js'
 import { WebGPURenderer, type Renderer } from 'three/webgpu'
 
 import type { RendererArgs } from '../controls/rendererControls'
+import {
+  AgXPunchyToneMapping,
+  agxPunchyToneMapping
+} from '../helpers/AgxToneMapping'
 import { useControl } from '../hooks/useControl'
 import { Stats } from './Stats'
 
@@ -44,7 +47,7 @@ const Message: FC<{ forceWebGL: boolean }> = ({ forceWebGL }) => {
 }
 
 export interface WebGPUCanvasProps extends Omit<CanvasProps, 'gl'> {
-  renderer?: WebGPURendererParameters & {
+  renderer?: ConstructorParameters<typeof WebGPURenderer>[0] & {
     onInit?: (renderer: WebGPURenderer) => void | Promise<void>
   }
 }
@@ -98,6 +101,12 @@ export const WebGPUCanvas: FC<WebGPUCanvasProps> = ({
           // Require the model-view matrix premultiplied on the CPU side.
           // See: https://github.com/mrdoob/three.js/issues/30955
           renderer.highPrecision = true
+
+          // Add extra variations for AgX tone mapping.
+          renderer.library.addToneMapping(
+            agxPunchyToneMapping,
+            AgXPunchyToneMapping
+          )
 
           await onInit?.(renderer)
           return renderer
