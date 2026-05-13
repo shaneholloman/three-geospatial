@@ -30,7 +30,7 @@ export const Cityscape = createStory(Story, {
   },
   args: {
     showGround: true,
-    toneMappingExposure: 40,
+    toneMappingExposure: 50,
     dayOfYear: 1,
     timeOfDay: 7.6
   },
