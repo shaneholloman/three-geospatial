@@ -63,6 +63,10 @@ function createQuadTexture(): CanvasTexture {
   canvas.height = height
   const context = canvas.getContext('2d')!
 
+  context.fillStyle = '#000'
+  context.fillRect(0, 0, width, height)
+  context.filter = 'blur(3px)'
+
   const colorGradient = context.createLinearGradient(0, 0, width, 0)
   glareColors.forEach(([t, color]) => {
     colorGradient.addColorStop(t * 0.5, color)
@@ -72,20 +76,14 @@ function createQuadTexture(): CanvasTexture {
   })
   context.fillStyle = colorGradient
   context.fillRect(0, 0, width, height)
+  const inset = 5
+  context.fillRect(0, inset, width, height - inset * 2)
 
-  const gradientX = context.createLinearGradient(0, 0, width, 0)
-  gradientX.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  gradientX.addColorStop(0.5, 'rgba(0, 0, 0, 0)')
-  gradientX.addColorStop(1, 'rgba(0, 0, 0, 1)')
-  context.fillStyle = gradientX
-  context.fillRect(0, 0, width, height)
-
-  const gradientY = context.createLinearGradient(0, 0, 0, height)
-  gradientY.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  gradientY.addColorStop(0.25, 'rgba(0, 0, 0, 0)')
-  gradientY.addColorStop(0.75, 'rgba(0, 0, 0, 0)')
-  gradientY.addColorStop(1, 'rgba(0, 0, 0, 1)')
-  context.fillStyle = gradientY
+  const blackGradient = context.createLinearGradient(0, 0, width, 0)
+  blackGradient.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  blackGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)')
+  blackGradient.addColorStop(1, 'rgba(0, 0, 0, 1)')
+  context.fillStyle = blackGradient
   context.fillRect(0, 0, width, height)
 
   const texture = new CanvasTexture(canvas)
